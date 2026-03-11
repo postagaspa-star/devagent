@@ -67,26 +67,6 @@ Il server sarà disponibile su `http://localhost:3000`
 | `NODE_ENV` | Environment (development/production) | ❌ |
 | `MAX_ITERATIONS` | Max iterazioni agent (default: 15) | ❌ |
 
-## 🚀 Deploy su Railway
-
-1. **Push su GitHub**
-   ```bash
-   git add .
-   git commit -m "Initial commit"
-   git push origin main
-   ```
-
-2. **Connetti Railway**
-   - Vai su [railway.app](https://railway.app)
-   - Crea nuovo progetto da GitHub
-   - Seleziona il repository
-
-3. **Configura Environment Variables**
-   - `ANTHROPIC_API_KEY`: La tua API key
-   - `PASSWORD`: Password sicura
-   - `NODE_ENV`: production
-
-4. **Deploy automatico** - Railway builderà e deployerà automaticamente
 
 ## 📖 Uso
 
@@ -193,14 +173,3 @@ Verifica che il server sia raggiungibile e non ci siano firewall che bloccano We
 ### Agent si blocca
 L'agent ha un limite di 15 iterazioni. Se raggiunto, prova con un obiettivo più specifico.
 
-## 📄 License
-
-MIT
-
-## 🤝 Contributing
-
-1. Fork il repository
-2. Crea un branch (`git checkout -b feature/amazing-feature`)
-3. Commit le modifiche (`git commit -m 'Add amazing feature'`)
-4. Push il branch (`git push origin feature/amazing-feature`)
-5. Apri una Pull Request
