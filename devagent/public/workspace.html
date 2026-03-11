@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevAgent - Workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="workspace-body">
+  <div id="app" class="workspace-app">
+    <!-- Header -->
+    <header class="workspace-header">
+      <div class="header-left">
+        <a href="/" class="back-link">
+          <span class="back-icon">←</span>
+          <span class="back-text">Dashboard</span>
+        </a>
+      </div>
+      <div class="header-center">
+        <h1 id="project-name" class="project-title">Loading...</h1>
+        <p id="project-path" class="project-subtitle"></p>
+      </div>
+      <div class="header-right">
+        <button id="settings-btn" class="btn btn-ghost">
+          <span>⚙️</span>
+        </button>
+        <button id="logout-btn" class="btn btn-ghost">
+          <span>Logout</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="workspace-main">
+      <!-- Task Panel -->
+      <section class="task-panel">
+        <div class="panel-header">
+          <h2>🎯 Task</h2>
+        </div>
+        
+        <div class="task-form">
+          <div class="form-group">
+            <label for="objective">Objective</label>
+            <textarea 
+              id="objective" 
+              placeholder="Describe what you want the agent to do...&#10;&#10;Example: Add a PDF export button to the dashboard that exports the current data view"
+              rows="4"
+            ></textarea>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="autonomy-level">Autonomy Level</label>
+              <select id="autonomy-level">
+                <option value="full">🚀 Full Auto</option>
+                <option value="confirm_files">📁 Confirm Files</option>
+                <option value="manual">🔧 Manual</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="model-select">Model</label>
+              <select id="model-select">
+                <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                <option value="claude-opus-4-20250514">Claude Opus 4</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="task-actions">
+            <button id="start-agent-btn" class="btn btn-primary btn-large">
+              <span class="btn-icon">🚀</span>
+              <span class="btn-text">Start Agent</span>
+            </button>
+            <button id="stop-agent-btn" class="btn btn-danger btn-large hidden">
+              <span class="btn-icon">⏹️</span>
+              <span class="btn-text">Stop Agent</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Progress Panel -->
+      <section class="progress-panel">
+        <div class="panel-header">
+          <h2>📊 Progress</h2>
+          <div id="agent-status" class="status-badge status-idle">
+            <span class="status-dot"></span>
+            <span class="status-text">Idle</span>
+          </div>
+        </div>
+        
+        <div id="progress-timeline" class="progress-timeline">
+          <div class="timeline-empty">
+            <p>Start the agent to see progress here</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Authorization Modal (inline) -->
+      <div id="auth-request" class="auth-request hidden">
+        <div class="auth-header">
+          <span class="auth-icon">🔐</span>
+          <h3>Authorization Required</h3>
+        </div>
+        
+        <div class="auth-body">
+          <p class="auth-description">The agent wants to modify the following files:</p>
+          
+          <div id="auth-files" class="auth-files">
+            <!-- Files will be rendered here -->
+          </div>
+          
+          <div class="auth-feedback">
+            <label for="auth-feedback-input">Feedback (optional)</label>
+            <textarea 
+              id="auth-feedback-input" 
+              placeholder="Explain why you're rejecting or what changes you want..."
+              rows="2"
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="auth-actions">
+          <button id="auth-reject-btn" class="btn btn-danger">
+            <span>✗ Reject</span>
+          </button>
+          <button id="auth-approve-btn" class="btn btn-primary">
+            <span>✓ Approve All</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Completion Panel -->
+      <div id="completion-panel" class="completion-panel hidden">
+        <div class="completion-header">
+          <span class="completion-icon">🎉</span>
+          <h3>Task Complete!</h3>
+        </div>
+        
+        <div class="completion-body">
+          <div class="completion-stats">
+            <div class="stat">
+              <span class="stat-value" id="stat-iterations">-</span>
+              <span class="stat-label">Iterations</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value" id="stat-files">-</span>
+              <span class="stat-label">Files Changed</span>
+            </div>
+          </div>
+          
+          <div id="completion-files" class="completion-files">
+            <!-- Changed files will be listed here -->
+          </div>
+          
+          <div id="completion-deploy" class="completion-deploy hidden">
+            <a id="deploy-link" href="#" target="_blank" class="btn btn-primary">
+              <span class="btn-icon">🌐</span>
+              <span class="btn-text">View Deployed Site</span>
+            </a>
+          </div>
+        </div>
+        
+        <div class="completion-actions">
+          <button id="new-task-btn" class="btn btn-ghost">Start New Task</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Connection Status -->
+    <div id="connection-status" class="connection-status">
+      <span class="connection-dot"></span>
+      <span class="connection-text">Connecting...</span>
+    </div>
+  </div>
+
+  <!-- Timeline Entry Template -->
+  <template id="timeline-entry-template">
+    <div class="timeline-entry" data-stage="">
+      <div class="timeline-marker">
+        <span class="marker-emoji"></span>
+      </div>
+      <div class="timeline-content">
+        <p class="timeline-message"></p>
+        <span class="timeline-time"></span>
+      </div>
+    </div>
+  </template>
+
+  <!-- Auth File Template -->
+  <template id="auth-file-template">
+    <div class="auth-file" data-path="">
+      <div class="auth-file-header">
+        <input type="checkbox" class="auth-file-checkbox" checked>
+        <span class="auth-file-path"></span>
+        <span class="auth-file-action"></span>
+      </div>
+      <div class="auth-file-diff hidden">
+        <pre class="diff-content"></pre>
+      </div>
+      <button class="auth-file-toggle">Show diff</button>
+    </div>
+  </template>
+
+  <script src="/app.js"></script>
+  <script>
+    // Initialize workspace
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof initWorkspace === 'function') {
+        initWorkspace();
+      }
+    });
+  </script>
+</body>
+</html>

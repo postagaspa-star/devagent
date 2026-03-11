@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevAgent - AI Development Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen active">
+      <div class="login-container">
+        <div class="login-header">
+          <div class="logo">
+            <span class="logo-icon">🤖</span>
+            <span class="logo-text">DevAgent</span>
+          </div>
+          <p class="login-subtitle">Autonomous AI Development</p>
+        </div>
+        
+        <form id="login-form" class="login-form">
+          <div class="input-group">
+            <label for="password">Password</label>
+            <input 
+              type="password" 
+              id="password" 
+              name="password" 
+              placeholder="Enter your password"
+              autocomplete="current-password"
+              required
+            >
+          </div>
+          <button type="submit" class="btn btn-primary btn-full">
+            <span class="btn-text">Access Dashboard</span>
+            <span class="btn-icon">→</span>
+          </button>
+          <p id="login-error" class="error-message"></p>
+        </form>
+        
+        <div class="login-footer">
+          <p>Powered by Claude AI</p>
+        </div>
+      </div>
+      
+      <div class="login-bg">
+        <div class="grid-lines"></div>
+        <div class="glow glow-1"></div>
+        <div class="glow glow-2"></div>
+      </div>
+    </div>
+
+    <!-- Dashboard Screen -->
+    <div id="dashboard-screen" class="screen">
+      <header class="header">
+        <div class="header-left">
+          <div class="logo small">
+            <span class="logo-icon">🤖</span>
+            <span class="logo-text">DevAgent</span>
+          </div>
+        </div>
+        <div class="header-right">
+          <button id="new-project-btn" class="btn btn-primary">
+            <span class="btn-icon">+</span>
+            <span class="btn-text">New Project</span>
+          </button>
+          <button id="logout-btn" class="btn btn-ghost">
+            <span class="btn-text">Logout</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="dashboard-main">
+        <div class="dashboard-header">
+          <h1>Projects</h1>
+          <p class="subtitle">Select a project to start the AI agent</p>
+        </div>
+
+        <div id="projects-grid" class="projects-grid">
+          <!-- Projects will be rendered here -->
+        </div>
+
+        <div id="empty-state" class="empty-state hidden">
+          <div class="empty-icon">📁</div>
+          <h3>No projects yet</h3>
+          <p>Create your first project to get started</p>
+          <button class="btn btn-primary" onclick="showNewProjectModal()">
+            <span class="btn-icon">+</span>
+            <span class="btn-text">Create Project</span>
+          </button>
+        </div>
+      </main>
+    </div>
+
+    <!-- New Project Modal -->
+    <div id="new-project-modal" class="modal">
+      <div class="modal-overlay" onclick="hideNewProjectModal()"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>New Project</h2>
+          <button class="modal-close" onclick="hideNewProjectModal()">×</button>
+        </div>
+        
+        <form id="new-project-form" class="form">
+          <div class="form-group">
+            <label for="project-name">Project Name</label>
+            <input 
+              type="text" 
+              id="project-name" 
+              name="name" 
+              placeholder="My Awesome App"
+              required
+            >
+          </div>
+          
+          <div class="form-group">
+            <label for="project-path">Project Path</label>
+            <input 
+              type="text" 
+              id="project-path" 
+              name="path" 
+              placeholder="/home/user/projects/my-app"
+              required
+            >
+            <span class="form-hint">Absolute path to the project directory</span>
+          </div>
+          
+          <div class="form-divider">
+            <span>Deployment (Optional)</span>
+          </div>
+          
+          <div class="form-group">
+            <label for="deploy-command">Deploy Command</label>
+            <input 
+              type="text" 
+              id="deploy-command" 
+              name="deployCommand" 
+              placeholder="npm run deploy"
+            >
+          </div>
+          
+          <div class="form-group">
+            <label for="deploy-url">Deploy URL</label>
+            <input 
+              type="text" 
+              id="deploy-url" 
+              name="deployUrl" 
+              placeholder="https://my-app.railway.app"
+            >
+          </div>
+          
+          <div class="form-divider">
+            <span>Testing (Optional)</span>
+          </div>
+          
+          <div class="form-group">
+            <label for="test-command">Test Command</label>
+            <input 
+              type="text" 
+              id="test-command" 
+              name="testCommand" 
+              placeholder="npm test"
+            >
+          </div>
+          
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="puppeteer-test" name="puppeteerTest">
+            <label for="puppeteer-test">Enable Puppeteer UI Testing</label>
+          </div>
+          
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost" onclick="hideNewProjectModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Project</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Edit Project Modal -->
+    <div id="edit-project-modal" class="modal">
+      <div class="modal-overlay" onclick="hideEditProjectModal()"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Edit Project</h2>
+          <button class="modal-close" onclick="hideEditProjectModal()">×</button>
+        </div>
+        
+        <form id="edit-project-form" class="form">
+          <input type="hidden" id="edit-project-id" name="id">
+          
+          <div class="form-group">
+            <label for="edit-project-name">Project Name</label>
+            <input type="text" id="edit-project-name" name="name" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="edit-project-path">Project Path</label>
+            <input type="text" id="edit-project-path" name="path" required>
+          </div>
+          
+          <div class="form-divider">
+            <span>Deployment</span>
+          </div>
+          
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="edit-deploy-enabled" name="deployEnabled">
+            <label for="edit-deploy-enabled">Enable Deployment</label>
+          </div>
+          
+          <div class="form-group">
+            <label for="edit-deploy-command">Deploy Command</label>
+            <input type="text" id="edit-deploy-command" name="deployCommand">
+          </div>
+          
+          <div class="form-group">
+            <label for="edit-deploy-url">Deploy URL</label>
+            <input type="text" id="edit-deploy-url" name="deployUrl">
+          </div>
+          
+          <div class="form-divider">
+            <span>Testing</span>
+          </div>
+          
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="edit-testing-enabled" name="testingEnabled">
+            <label for="edit-testing-enabled">Enable Testing</label>
+          </div>
+          
+          <div class="form-group">
+            <label for="edit-test-command">Test Command</label>
+            <input type="text" id="edit-test-command" name="testCommand">
+          </div>
+          
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="edit-puppeteer-test" name="puppeteerTest">
+            <label for="edit-puppeteer-test">Enable Puppeteer UI Testing</label>
+          </div>
+          
+          <div class="form-actions">
+            <button type="button" class="btn btn-danger" onclick="confirmDeleteProject()">Delete</button>
+            <div class="form-actions-right">
+              <button type="button" class="btn btn-ghost" onclick="hideEditProjectModal()">Cancel</button>
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project Card Template -->
+  <template id="project-card-template">
+    <div class="project-card" data-project-id="">
+      <div class="project-card-header">
+        <div class="project-icon">📦</div>
+        <div class="project-info">
+          <h3 class="project-name"></h3>
+          <p class="project-path"></p>
+        </div>
+        <button class="btn btn-icon project-settings" title="Settings">⚙️</button>
+      </div>
+      
+      <div class="project-badges">
+        <span class="badge badge-deploy hidden">🚀 Deploy</span>
+        <span class="badge badge-test hidden">🧪 Tests</span>
+      </div>
+      
+      <div class="project-history hidden">
+        <p class="history-label">Last task:</p>
+        <p class="history-objective"></p>
+      </div>
+      
+      <div class="project-actions">
+        <button class="btn btn-primary btn-full open-workspace">
+          <span class="btn-text">Open Workspace</span>
+          <span class="btn-icon">→</span>
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

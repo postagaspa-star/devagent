@@ -1,0 +1,48 @@
+{
+  "version": "1.0.0",
+  "defaultModel": "claude-sonnet-4-20250514",
+  "availableModels": [
+    {
+      "id": "claude-sonnet-4-20250514",
+      "name": "Claude Sonnet 4",
+      "description": "Fast and efficient"
+    },
+    {
+      "id": "claude-opus-4-20250514",
+      "name": "Claude Opus 4",
+      "description": "Most capable"
+    }
+  ],
+  "autonomyLevels": [
+    {
+      "id": "full",
+      "name": "Full Auto",
+      "description": "Agent operates autonomously without interruptions"
+    },
+    {
+      "id": "confirm_files",
+      "name": "Confirm Files",
+      "description": "Requires approval before modifying files"
+    },
+    {
+      "id": "manual",
+      "name": "Manual",
+      "description": "Requires approval for each step"
+    }
+  ],
+  "maxIterations": 15,
+  "defaultTimeout": 300000,
+  "progressEmojis": {
+    "iteration": "🔄",
+    "develop": "💻",
+    "review": "🔍",
+    "deploy": "🚀",
+    "test": "🧪",
+    "success": "✅",
+    "error": "❌",
+    "warning": "⚠️",
+    "ready": "🎉",
+    "waiting": "⏳",
+    "auth": "🔐"
+  }
+}
