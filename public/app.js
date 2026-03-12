@@ -73,6 +73,18 @@ class DevAgentApp {
     document.getElementById('stop-agent-btn')
       .addEventListener('click', () => this.stopAgent());
 
+    // Path input — sync to conversation on change
+    const pathInput = document.getElementById('chat-path-input');
+    pathInput?.addEventListener('change', () => {
+      const conv = this.getCurrentConv();
+      if (conv) {
+        conv.projectPath = pathInput.value.trim();
+        this.saveConversations();
+        document.getElementById('chat-project-path').textContent =
+          conv.projectPath ? `📁 ${conv.projectPath}` : '⚠️ No project path set';
+      }
+    });
+
     // Input
     const textarea = document.getElementById('chat-input');
     const sendBtn  = document.getElementById('send-btn');
@@ -168,10 +180,7 @@ class DevAgentApp {
 
   openSettings() {
     const s = this.settings || {};
-    document.getElementById('settings-path').value       = s.projectPath  || '';
-    document.getElementById('settings-deploy-cmd').value = s.deployCommand || '';
-    document.getElementById('settings-deploy-url').value = s.deployUrl     || '';
-    document.getElementById('settings-test-cmd').value   = s.testCommand   || '';
+    document.getElementById('settings-path').value = s.projectPath || '';
     document.getElementById('settings-modal').classList.add('active');
   }
 
@@ -181,10 +190,7 @@ class DevAgentApp {
 
   async saveSettings() {
     const settings = {
-      projectPath  : document.getElementById('settings-path').value.trim(),
-      deployCommand: document.getElementById('settings-deploy-cmd').value.trim(),
-      deployUrl    : document.getElementById('settings-deploy-url').value.trim(),
-      testCommand  : document.getElementById('settings-test-cmd').value.trim()
+      projectPath: document.getElementById('settings-path').value.trim()
     };
     try {
       const res  = await fetch('/api/settings', {
@@ -198,11 +204,6 @@ class DevAgentApp {
         localStorage.setItem('devagent_settings', JSON.stringify(settings));
         this.closeSettings();
         this.showToast('Settings saved', 'success');
-        // Refresh path shown in chat header
-        if (this.currentConvId) {
-          document.getElementById('chat-project-path').textContent =
-            settings.projectPath ? `📁 ${settings.projectPath}` : '⚠️ No project configured';
-        }
       } else {
         this.showToast('Failed to save settings', 'error');
       }
@@ -229,10 +230,11 @@ class DevAgentApp {
 
   newChat() {
     const conv = {
-      id       : `conv-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-      title    : 'New conversation',
-      createdAt: new Date().toISOString(),
-      messages : []
+      id         : `conv-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      title      : 'New conversation',
+      createdAt  : new Date().toISOString(),
+      projectPath: this.settings?.projectPath || '',
+      messages   : []
     };
     this.conversations.unshift(conv);
     this.saveConversations();
@@ -256,11 +258,15 @@ class DevAgentApp {
     document.getElementById('chat-view').style.display    = 'flex';
     document.getElementById('input-area').style.display   = 'block';
 
+    // Populate per-chat path input
+    const pathInput = document.getElementById('chat-path-input');
+    if (pathInput) pathInput.value = conv.projectPath || '';
+
     // Header path
     document.getElementById('chat-project-path').textContent =
-      this.settings?.projectPath
-        ? `📁 ${this.settings.projectPath}`
-        : '⚠️ No project configured — open Settings';
+      conv.projectPath
+        ? `📁 ${conv.projectPath}`
+        : '⚠️ No project path set';
 
     // Render messages
     const container = document.getElementById('messages-container');
@@ -344,16 +350,26 @@ class DevAgentApp {
     const text     = textarea.value.trim();
     if (!text) return;
 
-    if (!this.settings?.projectPath) {
-      this.showToast('Configure a project path in Settings first', 'warning');
-      this.openSettings();
-      return;
-    }
-
     if (!this.currentConvId) this.newChat();
 
     const conv = this.getCurrentConv();
     if (!conv) return;
+
+    // Read per-chat project path
+    const pathInput  = document.getElementById('chat-path-input');
+    const projectPath = pathInput?.value.trim() || conv.projectPath || '';
+
+    if (!projectPath) {
+      this.showToast('Set a project path above before sending', 'warning');
+      pathInput?.focus();
+      return;
+    }
+
+    // Persist path to conversation
+    conv.projectPath = projectPath;
+
+    // Update header
+    document.getElementById('chat-project-path').textContent = `📁 ${projectPath}`;
 
     this.updateConvTitle(conv, text);
 
@@ -371,12 +387,12 @@ class DevAgentApp {
     this.renderMessage(userMsg, container);
     container.scrollTop = container.scrollHeight;
 
-    textarea.value     = '';
+    textarea.value        = '';
     textarea.style.height = 'auto';
 
     const model    = document.getElementById('model-select').value;
     const autonomy = document.getElementById('autonomy-select').value;
-    this.startAgent(text, model, autonomy);
+    this.startAgent(text, model, autonomy, projectPath);
   }
 
   addAgentMessage(type, content, data = {}) {
@@ -512,7 +528,7 @@ class DevAgentApp {
   // AGENT
   // ═══════════════════════════════════════════
 
-  startAgent(objective, model, autonomy) {
+  startAgent(objective, model, autonomy, projectPath) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       this.showToast('Not connected to server', 'error');
       this.connectWebSocket();
@@ -530,7 +546,15 @@ class DevAgentApp {
       objective,
       autonomyLevel: autonomy,
       model,
-      token       : this.token   // re-auth in case ws session is new
+      token       : this.token,
+      project     : {
+        id        : this.currentConvId || 'default',
+        name      : projectPath ? projectPath.split(/[\\/]/).pop() || 'Project' : 'Project',
+        path      : projectPath,
+        deployment: { enabled: false, command: '', url: '' },
+        testing   : { enabled: false, command: '', puppeteer: false },
+        history   : []
+      }
     }));
   }
 
