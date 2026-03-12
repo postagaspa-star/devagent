@@ -101,11 +101,14 @@ a:hover { color: var(--accent-primary-hover); }
    ============================================ */
 
 #login-screen {
-  display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   overflow: hidden;
+}
+
+#login-screen.active {
+  display: flex;
 }
 
 .login-container {
