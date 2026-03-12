@@ -26,6 +26,7 @@ const GLOBAL_CONFIG_FILE = path.join(CONFIG_DIR, 'global.json');
 
 // Initialize
 const app = express();
+app.set('trust proxy', 1);
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
