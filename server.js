@@ -31,7 +31,7 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 // Auth instance
-const auth = new Auth(process.env.PASSWORD, process.env.JWT_SECRET);
+const auth = await Auth.create(process.env.PASSWORD, process.env.JWT_SECRET);
 
 // Global config
 let globalConfig;
