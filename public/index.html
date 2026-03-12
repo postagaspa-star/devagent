@@ -3,284 +3,205 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DevAgent - AI Development Assistant</title>
+  <title>DevAgent</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app">
-    <!-- Login Screen -->
-    <div id="login-screen" class="screen active">
-      <div class="login-container">
-        <div class="login-header">
-          <div class="logo">
-            <span class="logo-icon">🤖</span>
-            <span class="logo-text">DevAgent</span>
-          </div>
-          <p class="login-subtitle">Autonomous AI Development</p>
+
+  <!-- ═══ LOGIN SCREEN ═══ -->
+  <div id="login-screen" class="screen active">
+    <div class="login-container">
+      <div class="login-header">
+        <div class="logo">
+          <span class="logo-icon">🤖</span>
+          <span class="logo-text">DevAgent</span>
         </div>
-        
-        <form id="login-form" class="login-form">
-          <div class="input-group">
-            <label for="password">Password</label>
-            <input 
-              type="password" 
-              id="password" 
-              name="password" 
-              placeholder="Enter your password"
-              autocomplete="current-password"
-              required
-            >
-          </div>
-          <button type="submit" class="btn btn-primary btn-full">
-            <span class="btn-text">Access Dashboard</span>
-            <span class="btn-icon">→</span>
-          </button>
-          <p id="login-error" class="error-message"></p>
-        </form>
-        
-        <div class="login-footer">
-          <p>Powered by Claude AI</p>
+        <p class="login-subtitle">Autonomous AI Development</p>
+      </div>
+      <form id="login-form" class="login-form">
+        <div class="input-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password"
+            placeholder="Enter your password"
+            autocomplete="current-password" required>
         </div>
-      </div>
-      
-      <div class="login-bg">
-        <div class="grid-lines"></div>
-        <div class="glow glow-1"></div>
-        <div class="glow glow-2"></div>
-      </div>
+        <button type="submit" class="btn btn-primary btn-full">
+          <span class="btn-text">Access DevAgent</span>
+          <span class="btn-icon">→</span>
+        </button>
+        <p id="login-error" class="error-message"></p>
+      </form>
+      <div class="login-footer"><p>Powered by Claude AI</p></div>
     </div>
-
-    <!-- Dashboard Screen -->
-    <div id="dashboard-screen" class="screen">
-      <header class="header">
-        <div class="header-left">
-          <div class="logo small">
-            <span class="logo-icon">🤖</span>
-            <span class="logo-text">DevAgent</span>
-          </div>
-        </div>
-        <div class="header-right">
-          <button id="new-project-btn" class="btn btn-primary">
-            <span class="btn-icon">+</span>
-            <span class="btn-text">New Project</span>
-          </button>
-          <button id="logout-btn" class="btn btn-ghost">
-            <span class="btn-text">Logout</span>
-          </button>
-        </div>
-      </header>
-
-      <main class="dashboard-main">
-        <div class="dashboard-header">
-          <h1>Projects</h1>
-          <p class="subtitle">Select a project to start the AI agent</p>
-        </div>
-
-        <div id="projects-grid" class="projects-grid">
-          <!-- Projects will be rendered here -->
-        </div>
-
-        <div id="empty-state" class="empty-state hidden">
-          <div class="empty-icon">📁</div>
-          <h3>No projects yet</h3>
-          <p>Create your first project to get started</p>
-          <button class="btn btn-primary" onclick="showNewProjectModal()">
-            <span class="btn-icon">+</span>
-            <span class="btn-text">Create Project</span>
-          </button>
-        </div>
-      </main>
-    </div>
-
-    <!-- New Project Modal -->
-    <div id="new-project-modal" class="modal">
-      <div class="modal-overlay" onclick="hideNewProjectModal()"></div>
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>New Project</h2>
-          <button class="modal-close" onclick="hideNewProjectModal()">×</button>
-        </div>
-        
-        <form id="new-project-form" class="form">
-          <div class="form-group">
-            <label for="project-name">Project Name</label>
-            <input 
-              type="text" 
-              id="project-name" 
-              name="name" 
-              placeholder="My Awesome App"
-              required
-            >
-          </div>
-          
-          <div class="form-group">
-            <label for="project-path">Project Path</label>
-            <input 
-              type="text" 
-              id="project-path" 
-              name="path" 
-              placeholder="/home/user/projects/my-app"
-              required
-            >
-            <span class="form-hint">Absolute path to the project directory</span>
-          </div>
-          
-          <div class="form-divider">
-            <span>Deployment (Optional)</span>
-          </div>
-          
-          <div class="form-group">
-            <label for="deploy-command">Deploy Command</label>
-            <input 
-              type="text" 
-              id="deploy-command" 
-              name="deployCommand" 
-              placeholder="npm run deploy"
-            >
-          </div>
-          
-          <div class="form-group">
-            <label for="deploy-url">Deploy URL</label>
-            <input 
-              type="text" 
-              id="deploy-url" 
-              name="deployUrl" 
-              placeholder="https://my-app.railway.app"
-            >
-          </div>
-          
-          <div class="form-divider">
-            <span>Testing (Optional)</span>
-          </div>
-          
-          <div class="form-group">
-            <label for="test-command">Test Command</label>
-            <input 
-              type="text" 
-              id="test-command" 
-              name="testCommand" 
-              placeholder="npm test"
-            >
-          </div>
-          
-          <div class="form-group checkbox-group">
-            <input type="checkbox" id="puppeteer-test" name="puppeteerTest">
-            <label for="puppeteer-test">Enable Puppeteer UI Testing</label>
-          </div>
-          
-          <div class="form-actions">
-            <button type="button" class="btn btn-ghost" onclick="hideNewProjectModal()">Cancel</button>
-            <button type="submit" class="btn btn-primary">Create Project</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Edit Project Modal -->
-    <div id="edit-project-modal" class="modal">
-      <div class="modal-overlay" onclick="hideEditProjectModal()"></div>
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Edit Project</h2>
-          <button class="modal-close" onclick="hideEditProjectModal()">×</button>
-        </div>
-        
-        <form id="edit-project-form" class="form">
-          <input type="hidden" id="edit-project-id" name="id">
-          
-          <div class="form-group">
-            <label for="edit-project-name">Project Name</label>
-            <input type="text" id="edit-project-name" name="name" required>
-          </div>
-          
-          <div class="form-group">
-            <label for="edit-project-path">Project Path</label>
-            <input type="text" id="edit-project-path" name="path" required>
-          </div>
-          
-          <div class="form-divider">
-            <span>Deployment</span>
-          </div>
-          
-          <div class="form-group checkbox-group">
-            <input type="checkbox" id="edit-deploy-enabled" name="deployEnabled">
-            <label for="edit-deploy-enabled">Enable Deployment</label>
-          </div>
-          
-          <div class="form-group">
-            <label for="edit-deploy-command">Deploy Command</label>
-            <input type="text" id="edit-deploy-command" name="deployCommand">
-          </div>
-          
-          <div class="form-group">
-            <label for="edit-deploy-url">Deploy URL</label>
-            <input type="text" id="edit-deploy-url" name="deployUrl">
-          </div>
-          
-          <div class="form-divider">
-            <span>Testing</span>
-          </div>
-          
-          <div class="form-group checkbox-group">
-            <input type="checkbox" id="edit-testing-enabled" name="testingEnabled">
-            <label for="edit-testing-enabled">Enable Testing</label>
-          </div>
-          
-          <div class="form-group">
-            <label for="edit-test-command">Test Command</label>
-            <input type="text" id="edit-test-command" name="testCommand">
-          </div>
-          
-          <div class="form-group checkbox-group">
-            <input type="checkbox" id="edit-puppeteer-test" name="puppeteerTest">
-            <label for="edit-puppeteer-test">Enable Puppeteer UI Testing</label>
-          </div>
-          
-          <div class="form-actions">
-            <button type="button" class="btn btn-danger" onclick="confirmDeleteProject()">Delete</button>
-            <div class="form-actions-right">
-              <button type="button" class="btn btn-ghost" onclick="hideEditProjectModal()">Cancel</button>
-              <button type="submit" class="btn btn-primary">Save Changes</button>
-            </div>
-          </div>
-        </form>
-      </div>
+    <div class="login-bg">
+      <div class="grid-lines"></div>
+      <div class="glow glow-1"></div>
+      <div class="glow glow-2"></div>
     </div>
   </div>
 
-  <!-- Project Card Template -->
-  <template id="project-card-template">
-    <div class="project-card" data-project-id="">
-      <div class="project-card-header">
-        <div class="project-icon">📦</div>
-        <div class="project-info">
-          <h3 class="project-name"></h3>
-          <p class="project-path"></p>
+  <!-- ═══ APP SCREEN ═══ -->
+  <div id="app-screen" class="screen">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <span class="sidebar-logo-icon">🤖</span>
+          <span class="sidebar-logo-text">DevAgent</span>
         </div>
-        <button class="btn btn-icon project-settings" title="Settings">⚙️</button>
-      </div>
-      
-      <div class="project-badges">
-        <span class="badge badge-deploy hidden">🚀 Deploy</span>
-        <span class="badge badge-test hidden">🧪 Tests</span>
-      </div>
-      
-      <div class="project-history hidden">
-        <p class="history-label">Last task:</p>
-        <p class="history-objective"></p>
-      </div>
-      
-      <div class="project-actions">
-        <button class="btn btn-primary btn-full open-workspace">
-          <span class="btn-text">Open Workspace</span>
-          <span class="btn-icon">→</span>
+        <button id="new-chat-btn" class="sidebar-new-btn" title="New Chat">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
         </button>
       </div>
+
+      <div id="chat-list" class="chat-list">
+        <div id="chat-list-empty" class="chat-list-empty">
+          <p>No conversations yet</p>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="settings-btn" class="sidebar-footer-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span>Settings</span>
+        </button>
+        <button id="logout-btn" class="sidebar-footer-btn sidebar-footer-icon-only" title="Logout">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+
+      <!-- Welcome View -->
+      <div id="welcome-view" class="welcome-view">
+        <div class="welcome-icon">🤖</div>
+        <h1 class="welcome-title">DevAgent</h1>
+        <p class="welcome-subtitle">Autonomous AI Development powered by Claude</p>
+        <p class="welcome-hint">Start a new conversation or select one from the sidebar</p>
+        <button id="welcome-new-chat" class="btn btn-primary" style="margin-top:20px;">
+          <span class="btn-icon">+</span>
+          <span class="btn-text">New Conversation</span>
+        </button>
+      </div>
+
+      <!-- Chat View -->
+      <div id="chat-view" class="chat-view" style="display:none;">
+        <div class="chat-header">
+          <span id="chat-project-path" class="chat-project-path">—</span>
+          <div class="chat-header-actions">
+            <div id="agent-status" class="agent-status">
+              <span class="status-dot"></span>
+              <span class="status-label">Idle</span>
+            </div>
+            <button id="stop-agent-btn" class="btn btn-danger btn-sm" style="display:none;">
+              ⏹ Stop
+            </button>
+          </div>
+        </div>
+        <div id="messages-container" class="messages-container"></div>
+      </div>
+
+      <!-- Input Area -->
+      <div id="input-area" class="input-area" style="display:none;">
+        <div class="input-wrapper">
+          <textarea id="chat-input"
+            placeholder="Describe what you want to build or change..."
+            rows="1"></textarea>
+          <div class="input-footer">
+            <div class="input-options">
+              <select id="model-select" class="select-sm">
+                <option value="claude-sonnet-4-20250514">Sonnet 4</option>
+                <option value="claude-opus-4-20250514">Opus 4</option>
+              </select>
+              <select id="autonomy-select" class="select-sm">
+                <option value="full">🚀 Full Auto</option>
+                <option value="confirm_files">📁 Confirm Files</option>
+                <option value="manual">🔧 Manual</option>
+              </select>
+            </div>
+            <button id="send-btn" class="send-btn" title="Send (Enter)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="19" x2="12" y2="5"/>
+                <polyline points="5 12 12 5 19 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <p class="input-hint">
+          <kbd>Enter</kbd> to send &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> for new line
+        </p>
+      </div>
+
     </div>
-  </template>
+  </div>
+
+  <!-- ═══ SETTINGS MODAL ═══ -->
+  <div id="settings-modal" class="modal">
+    <div class="modal-overlay" id="settings-overlay"></div>
+    <div class="modal-content settings-panel">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="modal-close" id="settings-close">×</button>
+      </div>
+      <form id="settings-form" class="form">
+        <div class="settings-section">
+          <h3 class="settings-section-title">Project</h3>
+          <div class="form-group">
+            <label for="settings-path">Project Path</label>
+            <input type="text" id="settings-path"
+              placeholder="/home/user/my-project" class="font-mono">
+            <span class="form-hint">Absolute path to the directory the agent will work in</span>
+          </div>
+        </div>
+        <div class="settings-section">
+          <h3 class="settings-section-title">Deployment <span class="optional">(optional)</span></h3>
+          <div class="form-group">
+            <label for="settings-deploy-cmd">Deploy Command</label>
+            <input type="text" id="settings-deploy-cmd" placeholder="npm run deploy">
+          </div>
+          <div class="form-group">
+            <label for="settings-deploy-url">Deploy URL</label>
+            <input type="text" id="settings-deploy-url" placeholder="https://myapp.render.com">
+          </div>
+        </div>
+        <div class="settings-section">
+          <h3 class="settings-section-title">Testing <span class="optional">(optional)</span></h3>
+          <div class="form-group">
+            <label for="settings-test-cmd">Test Command</label>
+            <input type="text" id="settings-test-cmd" placeholder="npm test">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" id="settings-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

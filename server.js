@@ -22,6 +22,7 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const CONFIG_DIR = path.join(__dirname, 'config');
 const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const GLOBAL_CONFIG_FILE = path.join(CONFIG_DIR, 'global.json');
 
 // Initialize
@@ -93,6 +94,19 @@ async function saveProjects(data) {
 
 function generateId() {
   return `proj-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+}
+
+async function loadSettings() {
+  try {
+    const data = await fs.readFile(SETTINGS_FILE, 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    return { projectPath: '', deployCommand: '', deployUrl: '', testCommand: '' };
+  }
+}
+
+async function saveSettings(settings) {
+  await fs.writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2));
 }
 
 // ============ REST API ROUTES ============
@@ -265,6 +279,23 @@ app.delete('/api/projects/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Get settings
+app.get('/api/settings', authMiddleware, async (req, res) => {
+  const settings = await loadSettings();
+  res.json({ success: true, settings });
+});
+
+// Save settings
+app.put('/api/settings', authMiddleware, async (req, res) => {
+  try {
+    const { projectPath, deployCommand, deployUrl, testCommand } = req.body;
+    await saveSettings({ projectPath: projectPath || '', deployCommand: deployCommand || '', deployUrl: deployUrl || '', testCommand: testCommand || '' });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to save settings' });
+  }
+});
+
 // Stop agent
 app.post('/api/agent/stop', authMiddleware, (req, res) => {
   if (agent && agent.isRunning) {
@@ -282,11 +313,6 @@ app.get('/api/agent/status', authMiddleware, (req, res) => {
   } else {
     res.json({ success: true, status: { isRunning: false } });
   }
-});
-
-// Serve workspace page
-app.get('/workspace/:id', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'workspace.html'));
 });
 
 // Fallback to index
@@ -378,35 +404,55 @@ async function handleWebSocketMessage(clientId, message, ws) {
 }
 
 async function handleStartAgent(message, ws) {
-  const { projectId, objective, autonomyLevel, model } = message;
+  const { objective, autonomyLevel, model } = message;
 
   // Check if agent already running
   if (agent && agent.isRunning) {
-    ws.send(JSON.stringify({
-      type: 'ERROR',
-      error: 'Agent already running. Stop it first.'
-    }));
+    ws.send(JSON.stringify({ type: 'ERROR', error: 'Agent already running. Stop it first.' }));
     return;
   }
 
-  // Load project config
-  const data = await loadProjects();
-  const project = data.projects.find(p => p.id === projectId);
+  // Build project config: from message, from projectId, or from saved settings
+  let project;
 
-  if (!project) {
-    ws.send(JSON.stringify({
-      type: 'ERROR',
-      error: 'Project not found'
-    }));
-    return;
+  if (message.project) {
+    // Direct project config passed from client
+    project = message.project;
+  } else if (message.projectId) {
+    const data = await loadProjects();
+    project = data.projects.find(p => p.id === message.projectId);
+    if (!project) {
+      ws.send(JSON.stringify({ type: 'ERROR', error: 'Project not found' }));
+      return;
+    }
+  } else {
+    // Fall back to saved settings
+    const settings = await loadSettings();
+    if (!settings.projectPath) {
+      ws.send(JSON.stringify({ type: 'ERROR', error: 'No project path configured. Open Settings and set a project path.' }));
+      return;
+    }
+    project = {
+      id: 'default',
+      name: path.basename(settings.projectPath) || 'Project',
+      path: settings.projectPath,
+      deployment: {
+        enabled: !!settings.deployCommand,
+        command: settings.deployCommand || '',
+        url: settings.deployUrl || ''
+      },
+      testing: {
+        enabled: !!settings.testCommand,
+        command: settings.testCommand || '',
+        puppeteer: false
+      },
+      history: []
+    };
   }
 
   // Verify API key
   if (!process.env.ANTHROPIC_API_KEY) {
-    ws.send(JSON.stringify({
-      type: 'ERROR',
-      error: 'ANTHROPIC_API_KEY not configured'
-    }));
+    ws.send(JSON.stringify({ type: 'ERROR', error: 'ANTHROPIC_API_KEY not configured on server' }));
     return;
   }
 
@@ -415,26 +461,8 @@ async function handleStartAgent(message, ws) {
     agent = new AutonomousAgent(process.env.ANTHROPIC_API_KEY, globalConfig);
   }
 
-  // Add task to history
-  project.history = project.history || [];
-  project.history.unshift({
-    objective,
-    startedAt: new Date().toISOString(),
-    status: 'running'
-  });
-  
-  // Keep only last 10 history items
-  project.history = project.history.slice(0, 10);
-  await saveProjects(data);
+  ws.send(JSON.stringify({ type: 'AGENT_STARTED', objective }));
 
-  // Start agent (async)
-  ws.send(JSON.stringify({
-    type: 'AGENT_STARTED',
-    projectId,
-    objective
-  }));
-
-  // Run agent
   try {
     const result = await agent.run(project, objective, {
       autonomyLevel: autonomyLevel || 'full',
@@ -442,29 +470,11 @@ async function handleStartAgent(message, ws) {
       wsClient: ws
     });
 
-    // Update project history
-    const updatedData = await loadProjects();
-    const updatedProject = updatedData.projects.find(p => p.id === projectId);
-    
-    if (updatedProject && updatedProject.history.length > 0) {
-      updatedProject.history[0].status = result.success ? 'completed' : 'failed';
-      updatedProject.history[0].completedAt = new Date().toISOString();
-      updatedProject.history[0].result = result;
-      await saveProjects(updatedData);
-    }
-
-    ws.send(JSON.stringify({
-      type: 'AGENT_COMPLETE',
-      result
-    }));
+    ws.send(JSON.stringify({ type: 'AGENT_COMPLETE', result }));
 
   } catch (error) {
     console.error('Agent error:', error);
-    
-    ws.send(JSON.stringify({
-      type: 'AGENT_ERROR',
-      error: error.message
-    }));
+    ws.send(JSON.stringify({ type: 'AGENT_ERROR', error: error.message }));
   }
 }
 
