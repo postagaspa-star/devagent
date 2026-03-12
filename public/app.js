@@ -28,12 +28,19 @@ class DevAgentClient {
 
   initDashboard() {
     // Check authentication
+    const initialToken = this.token;
+
     if (this.token) {
       this.verifyToken().then(valid => {
+        // Abort if user already logged in while we were verifying (race condition guard)
+        if (this.token !== initialToken) return;
         if (valid) {
           this.showScreen('dashboard-screen');
           this.loadProjects();
         } else {
+          // Clear stale/invalid token
+          this.token = null;
+          localStorage.removeItem('devagent_token');
           this.showScreen('login-screen');
         }
       });
@@ -106,10 +113,12 @@ class DevAgentClient {
         });
 
         const data = await response.json();
+        console.log('Login response:', data);
 
         if (data.success) {
           this.token = data.token;
           localStorage.setItem('devagent_token', data.token);
+          console.log('Token saved:', this.token);
           this.showScreen('dashboard-screen');
           this.loadProjects();
         } else {
@@ -175,7 +184,7 @@ class DevAgentClient {
 
     grid.innerHTML = '';
 
-    if (projects.length === 0) {
+    if (!projects || projects.length === 0) {
       grid.classList.add('hidden');
       emptyState?.classList.remove('hidden');
       return;
@@ -626,12 +635,13 @@ class DevAgentClient {
 
   showAuthRequest(data) {
     this.pendingAuthRequest = data;
-    
+
     const authEl = document.getElementById('auth-request');
     const filesEl = document.getElementById('auth-files');
     const template = document.getElementById('auth-file-template');
 
     if (!authEl || !filesEl) return;
+    if (!data.files || !Array.isArray(data.files)) return;
 
     filesEl.innerHTML = '';
 
@@ -674,6 +684,11 @@ class DevAgentClient {
     const feedback = document.getElementById('auth-feedback-input')?.value || '';
 
     if (!this.pendingAuthRequest) return;
+
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.showToast('Connection lost. Please refresh the page.', 'error');
+      return;
+    }
 
     // Get selected files
     const selectedFiles = [];

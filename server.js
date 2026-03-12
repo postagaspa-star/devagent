@@ -31,6 +31,9 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 // Auth instance
+if (!process.env.JWT_SECRET) {
+  console.warn('[Auth] WARNING: JWT_SECRET not set. A random secret will be generated, invalidating all tokens on every restart. Set JWT_SECRET in environment variables for persistent sessions.');
+}
 const auth = await Auth.create(process.env.PASSWORD, process.env.JWT_SECRET);
 
 // Global config
