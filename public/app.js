@@ -119,7 +119,10 @@ class DevAgentClient {
           this.token = data.token;
           localStorage.setItem('devagent_token', data.token);
           console.log('Token saved:', this.token);
+          console.log('Calling showScreen...');
           this.showScreen('dashboard-screen');
+          console.log('showScreen called');
+          console.log('Dashboard element:', document.getElementById('dashboard-screen'));
           this.loadProjects();
         } else {
           errorEl.textContent = data.error || 'Invalid password';
@@ -781,10 +784,17 @@ class DevAgentClient {
   // ============ UI HELPERS ============
 
   showScreen(screenId) {
-    document.querySelectorAll('.screen').forEach(screen => {
+    console.log('[showScreen] Switching to:', screenId);
+    const allScreens = document.querySelectorAll('.screen');
+    console.log('[showScreen] Found .screen elements:', allScreens.length);
+    allScreens.forEach(screen => {
       screen.classList.remove('active');
+      console.log('[showScreen] Removed active from:', screen.id);
     });
-    document.getElementById(screenId)?.classList.add('active');
+    const target = document.getElementById(screenId);
+    console.log('[showScreen] Target element:', target, '| classes before:', target?.className);
+    target?.classList.add('active');
+    console.log('[showScreen] Classes after:', target?.className);
   }
 
   showNewProjectModal() {
