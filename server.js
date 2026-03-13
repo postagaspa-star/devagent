@@ -72,7 +72,7 @@ async function loadGlobalConfig() {
     console.error('Failed to load global config:', error);
     return {
       maxIterations: 15,
-      defaultModel: 'claude-sonnet-4-20250514',
+      defaultModel: 'claude-sonnet-4-5-20250929',
       defaultTimeout: 300000
     };
   }
@@ -322,10 +322,26 @@ app.get('*', (req, res) => {
 
 // ============ WEBSOCKET HANDLING ============
 
+// ── Server-side keepalive: ping every 25s to survive Render's proxy timeout ──
+const KEEPALIVE_MS = 25000;
+setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (ws.isAlive === false) {
+      console.log('[WS] Terminating stale connection');
+      return ws.terminate();
+    }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, KEEPALIVE_MS);
+
 wss.on('connection', (ws, req) => {
   const clientId = `ws-${Date.now()}-${Math.random().toString(36).substring(7)}`;
   console.log(`[WS] Client connected: ${clientId}`);
-  
+
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+
   wsClients.set(clientId, { ws, authenticated: false });
 
   ws.on('message', async (data) => {
@@ -380,7 +396,11 @@ async function handleWebSocketMessage(clientId, message, ws) {
   // Handle different message types
   switch (message.type) {
     case 'START_AGENT':
-      await handleStartAgent(message, ws);
+      // Fire without await — agent runs async in background so PING/STOP still work
+      handleStartAgent(message, ws).catch(err => {
+        console.error('[WS] handleStartAgent uncaught:', err);
+        try { ws.send(JSON.stringify({ type: 'AGENT_ERROR', error: err.message })); } catch {}
+      });
       break;
 
     case 'APPROVE_AUTH':
@@ -453,6 +473,31 @@ async function handleStartAgent(message, ws) {
   // Verify API key
   if (!process.env.ANTHROPIC_API_KEY) {
     ws.send(JSON.stringify({ type: 'ERROR', error: 'ANTHROPIC_API_KEY not configured on server' }));
+    return;
+  }
+
+  // Validate project path — must exist on THIS server (not the user's local machine)
+  if (!project.path) {
+    ws.send(JSON.stringify({ type: 'ERROR', error: 'No project path set. Enter a path in the path bar above.' }));
+    return;
+  }
+
+  // Detect Windows-style paths sent to a Linux server
+  if (/^[A-Za-z]:\\/.test(project.path) || /^[A-Za-z]:\//.test(project.path)) {
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      error: `❌ Windows path detected: "${project.path}"\n\nDevAgent runs on a Linux server (Render) and cannot access your local machine's filesystem.\n\nTo work on local files, run DevAgent locally with: npm start\nTo work on server files, use a Linux path like: /opt/myproject`
+    }));
+    return;
+  }
+
+  try {
+    await fs.access(project.path);
+  } catch {
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      error: `❌ Path not found on server: "${project.path}"\n\nMake sure the directory exists on the server, or create it first.\nExample: mkdir -p /opt/myproject`
+    }));
     return;
   }
 
