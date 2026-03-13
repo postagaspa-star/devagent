@@ -1,0 +1,13 @@
+{
+  "name": "devagent-bridge",
+  "version": "1.0.0",
+  "description": "DevAgent local bridge — connects your PC to DevAgent on Render",
+  "main": "bridge.cjs",
+  "scripts": {
+    "start": "node bridge.cjs"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "ws": "^8.14.2"
+  }
+}

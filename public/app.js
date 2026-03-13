@@ -47,6 +47,7 @@ class DevAgentApp {
     this.renderSidebar();
     this.connectWebSocket();
     this.setupAppListeners();
+    this.loadBridgeStatus();
   }
 
   setupAppListeners() {
@@ -774,8 +775,41 @@ class DevAgentApp {
         this.addAgentMessage('error', data.error);
         break;
 
+      case 'BRIDGE_STATUS':
+        this.updateBridgeStatus(data.connected, data.workspaceRoot);
+        break;
+
       case 'PONG': break;
     }
+  }
+
+  // ═══════════════════════════════════════════
+  // BRIDGE STATUS
+  // ═══════════════════════════════════════════
+
+  async loadBridgeStatus() {
+    try {
+      const res  = await fetch('/api/bridge/status', {
+        headers: { Authorization: `Bearer ${this.token}` }
+      });
+      const data = await res.json();
+      if (data.success) this.updateBridgeStatus(data.connected, data.workspaceRoot);
+    } catch { /* non-critical */ }
+  }
+
+  updateBridgeStatus(connected, workspaceRoot) {
+    const el    = document.getElementById('bridge-status');
+    const label = el?.querySelector('.bridge-label');
+    if (!el) return;
+    el.classList.toggle('connected', connected);
+    if (label) {
+      label.textContent = connected
+        ? `Bridge: ${workspaceRoot ? workspaceRoot.split(/[\\/]/).pop() || 'connected' : 'connected'}`
+        : 'Bridge: disconnected';
+    }
+    el.title = connected
+      ? `Local bridge connected\nWorkspace: ${workspaceRoot || '(unknown)'}`
+      : 'Local bridge not connected.\nRun: node bridge/bridge.cjs';
   }
 
   // ═══════════════════════════════════════════

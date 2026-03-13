@@ -45,8 +45,41 @@ let globalConfig;
 // Agent instance (singleton)
 let agent = null;
 
-// WebSocket clients
+// WebSocket clients (browser)
 const wsClients = new Map();
+
+// ── Bridge state ────────────────────────────────────────────────────────────
+let bridgeWs            = null;            // the connected bridge WebSocket
+let bridgeWorkspaceRoot = null;            // workspace root reported by bridge on auth
+const pendingBridgeReqs = new Map();       // requestId → { resolve, reject, timeout }
+
+/** Send a command to the bridge and await its response */
+function sendToBridge(command, payload) {
+  if (!bridgeWs || bridgeWs.readyState !== 1) {
+    return Promise.reject(new Error(
+      'Bridge not connected. Run  node bridge/bridge.cjs  on your local PC first.'
+    ));
+  }
+  const requestId = `breq-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      pendingBridgeReqs.delete(requestId);
+      reject(new Error('Bridge command timed out (30s)'));
+    }, 30000);
+    pendingBridgeReqs.set(requestId, { resolve, reject, timeout });
+    bridgeWs.send(JSON.stringify({ type: command, requestId, ...payload }));
+  });
+}
+
+/** Broadcast bridge connection state to all authenticated browser clients */
+function broadcastBridgeStatus(connected, workspaceRoot) {
+  wsClients.forEach((client) => {
+    if (client.authenticated && client.ws.readyState === 1) {
+      client.ws.send(JSON.stringify({ type: 'BRIDGE_STATUS', connected, workspaceRoot: workspaceRoot || null }));
+    }
+  });
+}
+// ────────────────────────────────────────────────────────────────────────────
 
 // ============ MIDDLEWARE ============
 
@@ -357,6 +390,15 @@ app.get('/api/workspace/:convId/download', authMiddleware, async (req, res) => {
   tar.on('error', err => { console.error('[tar error]', err); if (!res.headersSent) res.status(500).end(); });
 });
 
+// Bridge status
+app.get('/api/bridge/status', authMiddleware, (req, res) => {
+  res.json({
+    success      : true,
+    connected    : !!(bridgeWs && bridgeWs.readyState === 1),
+    workspaceRoot: bridgeWorkspaceRoot || null
+  });
+});
+
 // Fallback to index
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -398,6 +440,19 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', () => {
     console.log(`[WS] Client disconnected: ${clientId}`);
+    const clientData = wsClients.get(clientId);
+    if (clientData?.isBridge) {
+      // Bridge disconnected — clean up pending requests and notify browsers
+      bridgeWs = null;
+      bridgeWorkspaceRoot = null;
+      pendingBridgeReqs.forEach(({ reject, timeout }) => {
+        clearTimeout(timeout);
+        reject(new Error('Bridge disconnected'));
+      });
+      pendingBridgeReqs.clear();
+      broadcastBridgeStatus(false, null);
+      console.log('[Bridge] Bridge disconnected');
+    }
     wsClients.delete(clientId);
   });
 
@@ -409,7 +464,47 @@ wss.on('connection', (ws, req) => {
 
 async function handleWebSocketMessage(clientId, message, ws) {
   const client = wsClients.get(clientId);
-  
+
+  // ── Bridge authentication (bridge sends this before any browser-client auth) ──
+  if (message.type === 'BRIDGE_AUTH') {
+    const expectedSecret = process.env.BRIDGE_SECRET;
+    if (!expectedSecret || message.secret !== expectedSecret) {
+      console.warn('[Bridge] ✗  Auth failed — wrong secret');
+      ws.send(JSON.stringify({ type: 'BRIDGE_AUTH_FAILED' }));
+      ws.close();
+      return;
+    }
+    // Reject if another bridge is already connected
+    if (bridgeWs && bridgeWs.readyState === 1) {
+      console.warn('[Bridge] Another bridge already connected — rejecting');
+      ws.send(JSON.stringify({ type: 'BRIDGE_AUTH_FAILED' }));
+      ws.close();
+      return;
+    }
+    bridgeWs = ws;
+    bridgeWorkspaceRoot = message.workspaceRoot || null;
+    client.isBridge = true;
+    ws.send(JSON.stringify({ type: 'BRIDGE_AUTH_SUCCESS' }));
+    console.log(`[Bridge] ✓  Bridge connected (workspace: ${bridgeWorkspaceRoot})`);
+    broadcastBridgeStatus(true, bridgeWorkspaceRoot);
+    return;
+  }
+
+  // ── Bridge response to a command we sent ──────────────────────────────────
+  if (message.type === 'BRIDGE_RESPONSE') {
+    const pending = pendingBridgeReqs.get(message.requestId);
+    if (pending) {
+      clearTimeout(pending.timeout);
+      pendingBridgeReqs.delete(message.requestId);
+      if (message.success) pending.resolve(message.result);
+      else pending.reject(new Error(message.error || 'Bridge command failed'));
+    }
+    return;
+  }
+
+  // ── Ignore bridge pong (keepalive handled by ws.isAlive / pong event) ─────
+  if (message.type === 'BRIDGE_PONG') return;
+
   // Authenticate WebSocket connection
   if (message.type === 'AUTH') {
     const decoded = auth.verifyWebSocketToken(message.token);
@@ -518,47 +613,67 @@ async function handleStartAgent(message, ws) {
     return;
   }
 
-  // ── Resolve workspace path ──────────────────────────────────────────────
-  // If no path is given, or a Windows path is given (local machine),
-  // auto-create a server-side workspace directory for this conversation.
-  const convId   = project.id || `conv-${Date.now()}`;
-  const isWindows = /^[A-Za-z]:[\\\/]/.test(project.path || '');
-  const needsAuto = !project.path || isWindows;
+  const convId = project.id || `conv-${Date.now()}`;
 
-  if (needsAuto) {
-    project.path = path.join(WORKSPACES_DIR, convId);
-    await fs.mkdir(project.path, { recursive: true });
-    console.log(`[Agent] Auto-created workspace: ${project.path}`);
+  // ── Choose execution mode: bridge (local PC) vs server-side workspace ──
+  const bridgeConnected = !!(bridgeWs && bridgeWs.readyState === 1);
+
+  let bridgeExecute = null;
+
+  if (bridgeConnected) {
+    // Agent will route all FS/exec calls through the bridge to the local PC
+    project.path = bridgeWorkspaceRoot || '.';
+    bridgeExecute = (command, payload) => sendToBridge(command, payload);
+    console.log(`[Agent] Bridge mode — workspace: ${project.path}`);
   } else {
-    // User supplied a Linux path — make sure it exists (create if not)
-    try {
-      await fs.access(project.path);
-    } catch {
+    // ── Resolve server-side workspace path ────────────────────────────────
+    // If no path is given, or a Windows path is given (local machine),
+    // auto-create a server-side workspace directory for this conversation.
+    const isWindows = /^[A-Za-z]:[\\\/]/.test(project.path || '');
+    const needsAuto = !project.path || isWindows;
+
+    if (needsAuto) {
+      project.path = path.join(WORKSPACES_DIR, convId);
+      await fs.mkdir(project.path, { recursive: true });
+      console.log(`[Agent] Auto-created workspace: ${project.path}`);
+    } else {
+      // User supplied a Linux path — make sure it exists (create if not)
       try {
-        await fs.mkdir(project.path, { recursive: true });
-      } catch (mkErr) {
-        ws.send(JSON.stringify({
-          type: 'ERROR',
-          error: `Cannot create/access path on server: "${project.path}". ${mkErr.message}`
-        }));
-        return;
+        await fs.access(project.path);
+      } catch {
+        try {
+          await fs.mkdir(project.path, { recursive: true });
+        } catch (mkErr) {
+          ws.send(JSON.stringify({
+            type : 'ERROR',
+            error: `Cannot create/access path on server: "${project.path}". ${mkErr.message}`
+          }));
+          return;
+        }
       }
     }
+    // ──────────────────────────────────────────────────────────────────────
   }
-  // ────────────────────────────────────────────────────────────────────────
 
   // Create agent if needed
   if (!agent) {
     agent = new AutonomousAgent(process.env.ANTHROPIC_API_KEY, globalConfig);
   }
 
-  ws.send(JSON.stringify({ type: 'AGENT_STARTED', objective, workspacePath: project.path, convId }));
+  ws.send(JSON.stringify({
+    type         : 'AGENT_STARTED',
+    objective,
+    workspacePath: project.path,
+    convId,
+    bridgeMode   : bridgeConnected
+  }));
 
   try {
     const result = await agent.run(project, objective, {
       autonomyLevel: autonomyLevel || 'full',
-      model: model || globalConfig.defaultModel,
-      wsClient: ws
+      model        : model || globalConfig.defaultModel,
+      wsClient     : ws,
+      bridgeExecute           // null when not using bridge
     });
 
     ws.send(JSON.stringify({ type: 'AGENT_COMPLETE', result }));

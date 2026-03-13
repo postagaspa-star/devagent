@@ -11,3 +11,7 @@ services:
         sync: false
       - key: PASSWORD
         sync: false
+      - key: BRIDGE_SECRET
+        sync: false
+      - key: JWT_SECRET
+        sync: false
