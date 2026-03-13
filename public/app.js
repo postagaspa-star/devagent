@@ -483,12 +483,13 @@ class DevAgentApp {
       }, 0);
 
     } else if (msg.type === 'completion') {
-      const s        = msg.data?.summary || msg.data || {};
-      const iters    = s.iterations    ?? '—';
-      const files    = s.filesChanged?.length ?? '—';
+      const s         = msg.data?.summary || msg.data || {};
+      const iters     = s.iterations    ?? '—';
+      const files     = s.filesChanged?.length ?? '—';
       const deployUrl = s.deployUrl || msg.data?.deployUrl;
-      el.className   = 'message-assistant';
-      el.innerHTML   = `
+      const convId    = this.currentConvId;
+      el.className    = 'message-assistant';
+      el.innerHTML    = `
         <div class="completion-card">
           <div class="completion-card-header">✅ Task Complete</div>
           <div class="completion-stats">
@@ -501,13 +502,18 @@ class DevAgentApp {
               <div class="completion-stat-label">Files</div>
             </div>
           </div>
-          ${deployUrl
-            ? `<a href="${deployUrl}" target="_blank" rel="noopener"
-                  class="btn btn-primary btn-sm" style="display:inline-flex;margin-top:6px;">
-                🌐 View Deployed Site
-               </a>`
-            : ''}
+          <div class="completion-actions">
+            ${convId ? `<button class="btn btn-primary btn-sm completion-download-btn" data-conv-id="${convId}">⬇ Download files</button>` : ''}
+            ${deployUrl ? `<a href="${deployUrl}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">🌐 View Site</a>` : ''}
+          </div>
+          <div class="completion-note">Files are stored on the server — download before the server restarts.</div>
         </div>`;
+
+      // Wire up inline download button
+      setTimeout(() => {
+        el.querySelector('.completion-download-btn')
+          ?.addEventListener('click', () => this.downloadWorkspace());
+      }, 0);
 
     } else if (msg.type === 'error') {
       el.className = 'message-assistant';
@@ -689,10 +695,10 @@ class DevAgentApp {
             conv.workspacePath = data.workspacePath;
             this.saveConversations();
           }
-          // Update header + path bar
+          // Update header + path bar (always reflect the real server workspace)
           document.getElementById('chat-project-path').textContent = `📁 ${data.workspacePath}`;
           const pi = document.getElementById('chat-path-input');
-          if (pi && !pi.value) pi.value = data.workspacePath;
+          if (pi) pi.value = data.workspacePath; // overwrite Windows paths etc.
           // Show download button
           const dlBtn = document.getElementById('download-workspace-btn');
           if (dlBtn) dlBtn.style.display = 'inline-flex';

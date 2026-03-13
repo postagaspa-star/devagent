@@ -1445,6 +1445,8 @@ select {
 .completion-stat { text-align: center; }
 .completion-stat-value { font-size: 1.3rem; font-weight: 700; color: var(--text-primary); }
 .completion-stat-label { font-size: 0.72rem; color: var(--text-muted); }
+.completion-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.completion-note { font-size: 0.72rem; color: var(--text-muted); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color); }
 
 /* Error card */
 .error-card { background: rgba(239,68,68,0.08); border: 1px solid var(--accent-danger); border-radius: var(--radius-md); padding: 10px 14px; font-size: 0.85rem; color: var(--accent-danger); max-width: 90%; margin: 4px 0; }
