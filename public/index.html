@@ -115,6 +115,9 @@
               <span class="status-dot"></span>
               <span class="status-label">Idle</span>
             </div>
+            <button id="download-workspace-btn" class="btn btn-ghost btn-sm" style="display:none;" title="Download workspace files">
+              ⬇ Download
+            </button>
             <button id="stop-agent-btn" class="btn btn-danger btn-sm" style="display:none;">
               ⏹ Stop
             </button>
@@ -128,7 +131,7 @@
         <div class="input-path-bar">
           <span class="input-path-icon">📁</span>
           <input type="text" id="chat-path-input" class="input-path-field font-mono"
-            placeholder="Project path (e.g. /home/user/myproject)">
+            placeholder="Leave empty for auto server workspace, or enter a Linux path">
         </div>
         <div class="input-wrapper">
           <textarea id="chat-input"

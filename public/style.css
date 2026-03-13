@@ -1490,6 +1490,10 @@ select {
 .font-mono { font-family: var(--font-mono) !important; font-size: 0.85rem !important; }
 .btn-sm { padding: 5px 12px !important; font-size: 0.8rem !important; border-radius: var(--radius-sm) !important; }
 
+/* ─── Download button ─── */
+#download-workspace-btn { gap: 4px; font-size: 0.78rem; padding: 4px 10px; border: 1px solid var(--border-color-light); border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); cursor: pointer; transition: all var(--transition-fast); }
+#download-workspace-btn:hover { border-color: var(--accent-secondary); color: var(--accent-secondary); }
+
 /* ─── Per-chat path bar ─── */
 .input-path-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 6px 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); transition: border-color var(--transition-fast); }
 .input-path-bar:focus-within { border-color: var(--accent-primary); }

@@ -7,7 +7,8 @@ class DevAgentApp {
     this.token       = localStorage.getItem('devagent_token');
     this.settings    = JSON.parse(localStorage.getItem('devagent_settings') || '{}');
     this.conversations = this.loadConversations();
-    this.currentConvId = null;
+    this.currentConvId  = null;
+    this.currentConvWorkspace = null; // server-side workspace path returned by AGENT_STARTED
     this.ws            = null;
     this.wsReconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
@@ -67,11 +68,13 @@ class DevAgentApp {
     document.getElementById('settings-form')
       .addEventListener('submit', e => { e.preventDefault(); this.saveSettings(); });
 
-    // Logout / Stop
+    // Logout / Stop / Download
     document.getElementById('logout-btn')
       .addEventListener('click', () => this.logout());
     document.getElementById('stop-agent-btn')
       .addEventListener('click', () => this.stopAgent());
+    document.getElementById('download-workspace-btn')
+      .addEventListener('click', () => this.downloadWorkspace());
 
     // Path input — sync to conversation on change
     const pathInput = document.getElementById('chat-path-input');
@@ -262,11 +265,14 @@ class DevAgentApp {
     const pathInput = document.getElementById('chat-path-input');
     if (pathInput) pathInput.value = conv.projectPath || '';
 
-    // Header path
+    // Header path — prefer the resolved workspace path saved on the conv
+    const displayPath = conv.workspacePath || conv.projectPath || '';
     document.getElementById('chat-project-path').textContent =
-      conv.projectPath
-        ? `📁 ${conv.projectPath}`
-        : '⚠️ No project path set';
+      displayPath ? `📁 ${displayPath}` : '⚠️ No workspace yet';
+
+    // Show/hide download button
+    const dlBtn = document.getElementById('download-workspace-btn');
+    if (dlBtn) dlBtn.style.display = conv.workspacePath ? 'inline-flex' : 'none';
 
     // Render messages
     const container = document.getElementById('messages-container');
@@ -355,21 +361,16 @@ class DevAgentApp {
     const conv = this.getCurrentConv();
     if (!conv) return;
 
-    // Read per-chat project path
-    const pathInput  = document.getElementById('chat-path-input');
+    // Read per-chat project path (optional — empty → server auto-creates workspace)
+    const pathInput   = document.getElementById('chat-path-input');
     const projectPath = pathInput?.value.trim() || conv.projectPath || '';
 
-    if (!projectPath) {
-      this.showToast('Set a project path above before sending', 'warning');
-      pathInput?.focus();
-      return;
-    }
-
-    // Persist path to conversation
+    // Persist path to conversation (may be empty — that's fine)
     conv.projectPath = projectPath;
 
-    // Update header
-    document.getElementById('chat-project-path').textContent = `📁 ${projectPath}`;
+    // Update header (will be replaced with real workspace path once AGENT_STARTED arrives)
+    document.getElementById('chat-project-path').textContent =
+      projectPath ? `📁 ${projectPath}` : '⏳ Creating workspace…';
 
     this.updateConvTitle(conv, text);
 
@@ -571,6 +572,31 @@ class DevAgentApp {
     this.setAgentStatus('idle', 'Idle');
   }
 
+  async downloadWorkspace() {
+    const conv = this.getCurrentConv();
+    const convId = conv?.id || this.currentConvId;
+    if (!convId) { this.showToast('No workspace to download', 'warning'); return; }
+    try {
+      this.showToast('Preparing download…', 'info');
+      const res = await fetch(`/api/workspace/${convId}/download`, {
+        headers: { Authorization: `Bearer ${this.token}` }
+      });
+      if (!res.ok) { this.showToast('Workspace not found on server', 'error'); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `devagent-workspace.tar.gz`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      this.showToast('Download started', 'success');
+    } catch (err) {
+      this.showToast('Download failed: ' + err.message, 'error');
+    }
+  }
+
   resetAgentUI() {
     this.isAgentRunning = false;
     this.removeTypingIndicator();
@@ -653,9 +679,26 @@ class DevAgentApp {
       case 'AUTH_SUCCESS': break;
       case 'AUTH_FAILED':  this.logout(); break;
 
-      case 'AGENT_STARTED':
+      case 'AGENT_STARTED': {
         this.removeTypingIndicator();
+        // Server tells us the real workspace path (auto-created or user-supplied)
+        if (data.workspacePath) {
+          this.currentConvWorkspace = data.workspacePath;
+          const conv = this.getCurrentConv();
+          if (conv) {
+            conv.workspacePath = data.workspacePath;
+            this.saveConversations();
+          }
+          // Update header + path bar
+          document.getElementById('chat-project-path').textContent = `📁 ${data.workspacePath}`;
+          const pi = document.getElementById('chat-path-input');
+          if (pi && !pi.value) pi.value = data.workspacePath;
+          // Show download button
+          const dlBtn = document.getElementById('download-workspace-btn');
+          if (dlBtn) dlBtn.style.display = 'inline-flex';
+        }
         break;
+      }
 
       case 'PROGRESS': {
         this.removeTypingIndicator();

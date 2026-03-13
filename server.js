@@ -1,6 +1,7 @@
 import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
+import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -19,11 +20,12 @@ const __dirname = path.dirname(__filename);
 
 // Configuration
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = path.join(__dirname, 'data');
-const CONFIG_DIR = path.join(__dirname, 'config');
-const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
-const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+const DATA_DIR        = path.join(__dirname, 'data');
+const CONFIG_DIR      = path.join(__dirname, 'config');
+const PROJECTS_FILE   = path.join(DATA_DIR, 'projects.json');
+const SETTINGS_FILE   = path.join(DATA_DIR, 'settings.json');
 const GLOBAL_CONFIG_FILE = path.join(CONFIG_DIR, 'global.json');
+const WORKSPACES_DIR  = path.join(DATA_DIR, 'workspaces'); // server-side per-conversation dirs
 
 // Initialize
 const app = express();
@@ -315,6 +317,46 @@ app.get('/api/agent/status', authMiddleware, (req, res) => {
   }
 });
 
+// List files in a workspace
+app.get('/api/workspace/:convId/files', authMiddleware, async (req, res) => {
+  const wsPath = path.join(WORKSPACES_DIR, req.params.convId);
+  const listRecursive = async (dir, base = '') => {
+    let results = [];
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const e of entries) {
+        if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+        const rel = base ? `${base}/${e.name}` : e.name;
+        if (e.isDirectory()) results = [...results, ...await listRecursive(path.join(dir, e.name), rel)];
+        else results.push(rel);
+      }
+    } catch {}
+    return results;
+  };
+  try {
+    await fs.access(wsPath);
+    const files = await listRecursive(wsPath);
+    res.json({ success: true, files });
+  } catch {
+    res.json({ success: true, files: [] });
+  }
+});
+
+// Download workspace as tar.gz
+app.get('/api/workspace/:convId/download', authMiddleware, async (req, res) => {
+  const wsPath = path.join(WORKSPACES_DIR, req.params.convId);
+  try { await fs.access(wsPath); } catch {
+    return res.status(404).json({ success: false, error: 'Workspace not found' });
+  }
+  const name = req.params.convId.substring(0, 16);
+  res.setHeader('Content-Type', 'application/gzip');
+  res.setHeader('Content-Disposition', `attachment; filename="devagent-${name}.tar.gz"`);
+  const tar = spawn('tar', ['czf', '-', '-C', wsPath, '.']);
+  tar.stdout.pipe(res);
+  tar.stderr.on('data', d => console.error('[tar]', d.toString()));
+  tar.on('error', err => { console.error('[tar error]', err); if (!res.headersSent) res.status(500).end(); });
+});
+
 // Fallback to index
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -476,37 +518,41 @@ async function handleStartAgent(message, ws) {
     return;
   }
 
-  // Validate project path — must exist on THIS server (not the user's local machine)
-  if (!project.path) {
-    ws.send(JSON.stringify({ type: 'ERROR', error: 'No project path set. Enter a path in the path bar above.' }));
-    return;
-  }
+  // ── Resolve workspace path ──────────────────────────────────────────────
+  // If no path is given, or a Windows path is given (local machine),
+  // auto-create a server-side workspace directory for this conversation.
+  const convId   = project.id || `conv-${Date.now()}`;
+  const isWindows = /^[A-Za-z]:[\\\/]/.test(project.path || '');
+  const needsAuto = !project.path || isWindows;
 
-  // Detect Windows-style paths sent to a Linux server
-  if (/^[A-Za-z]:\\/.test(project.path) || /^[A-Za-z]:\//.test(project.path)) {
-    ws.send(JSON.stringify({
-      type: 'ERROR',
-      error: `❌ Windows path detected: "${project.path}"\n\nDevAgent runs on a Linux server (Render) and cannot access your local machine's filesystem.\n\nTo work on local files, run DevAgent locally with: npm start\nTo work on server files, use a Linux path like: /opt/myproject`
-    }));
-    return;
+  if (needsAuto) {
+    project.path = path.join(WORKSPACES_DIR, convId);
+    await fs.mkdir(project.path, { recursive: true });
+    console.log(`[Agent] Auto-created workspace: ${project.path}`);
+  } else {
+    // User supplied a Linux path — make sure it exists (create if not)
+    try {
+      await fs.access(project.path);
+    } catch {
+      try {
+        await fs.mkdir(project.path, { recursive: true });
+      } catch (mkErr) {
+        ws.send(JSON.stringify({
+          type: 'ERROR',
+          error: `Cannot create/access path on server: "${project.path}". ${mkErr.message}`
+        }));
+        return;
+      }
+    }
   }
-
-  try {
-    await fs.access(project.path);
-  } catch {
-    ws.send(JSON.stringify({
-      type: 'ERROR',
-      error: `❌ Path not found on server: "${project.path}"\n\nMake sure the directory exists on the server, or create it first.\nExample: mkdir -p /opt/myproject`
-    }));
-    return;
-  }
+  // ────────────────────────────────────────────────────────────────────────
 
   // Create agent if needed
   if (!agent) {
     agent = new AutonomousAgent(process.env.ANTHROPIC_API_KEY, globalConfig);
   }
 
-  ws.send(JSON.stringify({ type: 'AGENT_STARTED', objective }));
+  ws.send(JSON.stringify({ type: 'AGENT_STARTED', objective, workspacePath: project.path, convId }));
 
   try {
     const result = await agent.run(project, objective, {
@@ -538,8 +584,9 @@ function handleApproveAuth(message) {
 
 async function startServer() {
   // Ensure directories exist
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.mkdir(CONFIG_DIR, { recursive: true });
+  await fs.mkdir(DATA_DIR,       { recursive: true });
+  await fs.mkdir(CONFIG_DIR,     { recursive: true });
+  await fs.mkdir(WORKSPACES_DIR, { recursive: true });
 
   // Initialize projects file if needed
   try {
