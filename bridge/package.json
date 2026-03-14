@@ -2,9 +2,9 @@
   "name": "devagent-bridge",
   "version": "1.0.0",
   "description": "DevAgent local bridge — connects your PC to DevAgent on Render",
-  "main": "bridge.cjs",
+  "main": "index.js",
   "scripts": {
-    "start": "node bridge.cjs"
+    "start": "node index.js"
   },
   "dependencies": {
     "dotenv": "^16.3.1",
