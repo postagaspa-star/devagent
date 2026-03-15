@@ -335,10 +335,20 @@ app.put('/api/settings', authMiddleware, async (req, res) => {
 app.post('/api/agent/stop', authMiddleware, (req, res) => {
   if (agent && agent.isRunning) {
     agent.stop();
+    agent = null; // Reset so a new agent can start immediately
     res.json({ success: true, message: 'Agent stop requested' });
   } else {
     res.json({ success: false, message: 'No agent running' });
   }
+});
+
+// Force reset agent state (emergency use when agent is stuck)
+app.post('/api/agent/reset', authMiddleware, (req, res) => {
+  if (agent) {
+    try { agent.stop(); } catch {}
+    agent = null;
+  }
+  res.json({ success: true, message: 'Agent state reset' });
 });
 
 // Get agent status
@@ -547,6 +557,7 @@ async function handleWebSocketMessage(clientId, message, ws) {
     case 'STOP_AGENT':
       if (agent) {
         agent.stop();
+        agent = null; // Reset so a new agent can start immediately
         ws.send(JSON.stringify({ type: 'AGENT_STOPPED' }));
       }
       break;
