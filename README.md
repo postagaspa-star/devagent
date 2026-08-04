@@ -48,8 +48,7 @@ write → test → fix loop. Without it, an agent that isn't converging will hap
 burn tokens forever on a bug it can't solve.
 
 **The singleton bug.** Stopping the agent didn't clear its instance, so every
-start after the first one hung. Resetting it explicitly on stop was the fix —
-obvious in hindsight, less obvious at 1am.
+start after the first one hung. Resetting it explicitly on stop was the fix.
 
 ## Setup
 
