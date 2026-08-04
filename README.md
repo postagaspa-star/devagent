@@ -1,175 +1,65 @@
-# 🤖 DevAgent
+# DevAgent
 
-**Autonomous AI Development System powered by Claude**
+Agente di sviluppo autonomo con interfaccia web: gli descrivi un obiettivo, lui
+legge il progetto, scrive il codice, lo testa, lo deploya e reagisce agli errori
+in un ciclo continuo. Guidabile dal browser del telefono.
 
-DevAgent è un sistema di sviluppo autonomo che utilizza Claude AI per sviluppare, testare e deployare codice automaticamente.
+## Perché esiste
 
-## ✨ Features
+L'idea era poter far avanzare un progetto mentre non sono al PC. Un agente da
+terminale non serve a questo: serve un servizio raggiungibile da fuori, che però
+deve poter toccare i file che stanno sul PC di casa.
 
-- **🚀 Sviluppo Autonomo**: Claude AI scrive, rivede e corregge codice automaticamente
-- **🔄 Loop Iterativo**: Ciclo continuo di sviluppo → review → deploy → test fino al completamento
-- **📁 3 Livelli di Autonomia**:
-  - **Full Auto**: Operazione completamente autonoma
-  - **Confirm Files**: Richiede approvazione prima di modificare file
-  - **Manual**: Richiede approvazione ad ogni step
-- **🔙 Rollback Automatico**: Ripristina lo stato precedente se il deploy fallisce
-- **🧪 Testing Automatico**: Supporto Puppeteer per UI testing
-- **📱 Responsive UI**: Accessibile da desktop e mobile
-- **🔐 Autenticazione**: Protezione con password singola + JWT
+Da qui la parte architettonicamente più interessante del progetto — e il suo
+compromesso principale, un agente con accesso in scrittura e shell su una
+macchina reale, protetto da una sola password.
 
-## 🛠️ Tech Stack
+## Come funziona
 
-- **Backend**: Node.js 20+, Express, WebSocket
-- **AI**: Anthropic SDK (Claude Sonnet 4 / Opus 4)
-- **Testing**: Puppeteer
-- **Auth**: bcrypt + JWT
-- **Storage**: JSON files
+Il server sta su Render ed espone la UI. Il filesystem, però, è quello del PC
+locale: un **bridge** in esecuzione sul PC si collega al server via WebSocket ed
+esegue lì i comandi. Il server non ha mai accesso diretto alla macchina — riceve
+solo il risultato delle operazioni che il bridge accetta di eseguire.
 
-## 📦 Installazione
+Claude Sonnet 4.5 lavora con sei strumenti: `read_file`, `write_file`,
+`delete_file`, `list_files`, `search_files`, `run_bash`. Ogni chiamata è
+trasmessa alla UI in tempo reale, quindi si vede cosa sta facendo mentre lo fa.
 
-### Prerequisiti
+## Livelli di autonomia
 
-- Node.js 20+
-- npm o yarn
-- Account Anthropic con API key
+- **Full Auto** — opera senza chiedere.
+- **Confirm Files** — chiede approvazione prima di modificare i file.
+- **Manual** — approvazione a ogni singolo step.
 
-### Setup Locale
+## Stack
+
+Node.js 20+, Express, WebSocket. Anthropic SDK per il modello, Puppeteer per i
+test di interfaccia, bcrypt + JWT per l'autenticazione, storage su file JSON.
+Deploy su Render tramite `render.yaml`.
+
+## Note tecniche
+
+- **Rollback sul deploy fallito**: se il deploy non va a buon fine lo stato
+  precedente viene ripristinato, così un ciclo autonomo non lascia il progetto
+  rotto a metà.
+- **Tetto di iterazioni**: `MAX_ITERATIONS` (default 15) limita il ciclo
+  scrivi → testa → correggi. Senza, un agente che non converge continua a
+  bruciare token su un errore che non sa risolvere.
+- **Bug del singleton**: allo stop l'istanza dell'agente non veniva azzerata e
+  ogni avvio successivo restava bloccato. Il reset esplicito allo stop è stato
+  il fix.
+
+## Setup
 
 ```bash
-# Clona il repository
-git clone https://github.com/yourusername/devagent.git
-cd devagent
-
-# Installa dipendenze
 npm install
-
-# Copia e configura environment variables
-cp .env.example .env
-
-# Modifica .env con i tuoi valori:
-# ANTHROPIC_API_KEY=sk-ant-...
-# PASSWORD=your-secure-password
-
-# Avvia il server
+cp .env.example .env    # ANTHROPIC_API_KEY, PASSWORD
 npm start
 ```
 
-Il server sarà disponibile su `http://localhost:3000`
+Server su `http://localhost:3000`. Per l'accesso al filesystem locale serve anche
+il bridge: `node bridge/index.js`, configurato con il proprio `bridge/.env`.
 
-### Environment Variables
-
-| Variable | Descrizione | Required |
-|----------|-------------|----------|
-| `ANTHROPIC_API_KEY` | Chiave API Anthropic | ✅ |
-| `PASSWORD` | Password per accesso | ✅ |
-| `JWT_SECRET` | Secret per JWT (auto-generato se assente) | ❌ |
-| `PORT` | Porta server (default: 3000) | ❌ |
-| `NODE_ENV` | Environment (development/production) | ❌ |
-| `MAX_ITERATIONS` | Max iterazioni agent (default: 15) | ❌ |
-
-
-## 📖 Uso
-
-### 1. Login
-
-Accedi con la password configurata in `PASSWORD`.
-
-### 2. Crea un Progetto
-
-- Nome del progetto
-- Path assoluto alla directory del progetto
-- (Opzionale) Comando deploy e URL
-- (Opzionale) Comando test
-
-### 3. Avvia l'Agent
-
-1. Apri il workspace del progetto
-2. Scrivi l'obiettivo (es. "Aggiungi un bottone per export PDF")
-3. Seleziona livello di autonomia
-4. Seleziona modello (Sonnet 4 o Opus 4)
-5. Clicca "Start Agent"
-
-### 4. Monitora il Progresso
-
-- Timeline real-time degli eventi
-- Richieste di autorizzazione (se non Full Auto)
-- Notifica di completamento con riepilogo
-
-## 🔌 API Reference
-
-### REST Endpoints
-
-```
-POST /api/login              - Autenticazione
-GET  /api/config             - Config pubblica
-GET  /api/projects           - Lista progetti [AUTH]
-POST /api/projects           - Crea progetto [AUTH]
-GET  /api/projects/:id       - Dettaglio progetto [AUTH]
-PUT  /api/projects/:id       - Aggiorna progetto [AUTH]
-DELETE /api/projects/:id     - Elimina progetto [AUTH]
-POST /api/agent/stop         - Ferma agent [AUTH]
-GET  /api/agent/status       - Stato agent [AUTH]
-GET  /api/health             - Health check
-```
-
-### WebSocket Events
-
-```javascript
-// Client → Server
-{ type: 'AUTH', token: 'jwt...' }
-{ type: 'START_AGENT', projectId, objective, autonomyLevel, model }
-{ type: 'APPROVE_AUTH', requestId, approved, files, feedback }
-{ type: 'STOP_AGENT' }
-
-// Server → Client
-{ type: 'PROGRESS', stage, message, emoji, timestamp }
-{ type: 'REQUEST_AUTH', requestId, files }
-{ type: 'READY_FOR_HUMAN', summary }
-{ type: 'AGENT_COMPLETE', result }
-{ type: 'AGENT_ERROR', error }
-```
-
-## 🧩 Architettura
-
-```
-devagent/
-├── server.js           # Express + WebSocket server
-├── lib/
-│   ├── agent.js        # Core agent loop
-│   ├── claude.js       # Claude API wrapper
-│   ├── deployer.js     # Deploy + rollback
-│   ├── tester.js       # Puppeteer testing
-│   └── auth.js         # Authentication
-├── public/             # Frontend
-│   ├── index.html      # Login + Dashboard
-│   ├── workspace.html  # Project workspace
-│   ├── style.css       # Styles
-│   └── app.js          # Client JS
-├── config/
-│   └── global.json     # Global config
-└── data/
-    └── projects.json   # Projects database
-```
-
-## 🔒 Sicurezza
-
-- Password hashata con bcrypt (work factor 10)
-- JWT con scadenza 24 ore
-- Rate limiting su login (5 tentativi/minuto)
-- Validazione path per prevenire path traversal
-- Sanitizzazione comandi shell
-
-## 🐛 Troubleshooting
-
-### "ANTHROPIC_API_KEY not configured"
-Verifica che la variabile ambiente sia impostata correttamente.
-
-### "Project path does not exist"
-Il path deve essere assoluto e la directory deve esistere sul server.
-
-### WebSocket non si connette
-Verifica che il server sia raggiungibile e non ci siano firewall che bloccano WebSocket.
-
-### Agent si blocca
-L'agent ha un limite di 15 iterazioni. Se raggiunto, prova con un obiettivo più specifico.
-
+> Progetto personale sperimentale. Da usare solo su progetti di cui si ha una
+> copia versionata: l'agente può scrivere ed eseguire comandi sulla macchina su
+> cui gira il bridge.
