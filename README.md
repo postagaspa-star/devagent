@@ -1,9 +1,9 @@
 # DevAgent
 
 An autonomous coding agent with a web UI. You give it a goal, it reads the
-project, writes code, runs tests, deploys, and reacts to whatever breaks — in a
-loop, until the job is done or it runs out of attempts. The whole thing is
-drivable from a phone browser.
+project, writes code, runs tests, deploys, and reacts to whatever breaks, looping
+until the job is done or it runs out of attempts. The whole thing is drivable
+from a phone browser.
 
 ## Why it exists
 
@@ -12,25 +12,26 @@ agent is no help there. What's needed is a service you can reach from anywhere,
 which runs straight into the obvious problem: the files are on a machine at home.
 
 That constraint produced the most interesting piece of the design, and also its
-biggest tradeoff — an agent with write access and a shell on a real machine,
+biggest tradeoff: an agent with write access and a shell on a real machine,
 sitting behind a single password.
 
 ## How it works
 
-The server lives on Render and serves the UI. The filesystem doesn't. A **bridge**
-process running on the local PC opens a WebSocket back to the server and executes
-filesystem commands there. The server never touches the machine directly; it only
-ever sees the result of operations the bridge was willing to run.
+The server lives on Render and serves the UI, but the filesystem stays at home. A
+**bridge** process running on the local PC opens a WebSocket back to the server
+and executes filesystem commands there. The server never touches the machine
+directly; it only ever sees the result of operations the bridge was willing to
+run.
 
 Claude Sonnet 4.5 drives it with six tools: `read_file`, `write_file`,
 `delete_file`, `list_files`, `search_files`, `run_bash`. Every call is pushed to
-the UI as it happens, so you can watch it work instead of guessing.
+the UI as it happens, so a long unattended run stays watchable.
 
 ## Autonomy levels
 
-- **Full auto** — it just goes.
-- **Confirm files** — asks before writing anything.
-- **Manual** — approval on every step.
+- **Full auto**: it just goes.
+- **Confirm files**: asks before writing anything.
+- **Manual**: approval on every step.
 
 ## Stack
 
